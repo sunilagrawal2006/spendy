@@ -90,7 +90,34 @@ def dashboard():
 
 @app.route("/profile")
 def profile():
-    return "Profile page — coming in Step 4"
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    user = conn.execute(
+        "SELECT name, email, created_at FROM users WHERE id = ?",
+        (session["user_id"],)
+    ).fetchone()
+    stats = conn.execute(
+        "SELECT COUNT(*) AS expense_count, SUM(amount) AS total_spent "
+        "FROM expenses WHERE user_id = ?",
+        (session["user_id"],)
+    ).fetchone()
+    conn.close()
+
+    if user is None:
+        session.clear()
+        return redirect(url_for("login"))
+
+    member_since = (user["created_at"] or "")[:10]
+
+    return render_template(
+        "profile.html",
+        user=user,
+        expense_count=stats["expense_count"],
+        total_spent=stats["total_spent"] or 0.0,
+        member_since=member_since,
+    )
 
 
 @app.route("/expenses/add")
